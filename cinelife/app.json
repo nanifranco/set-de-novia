@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "CineLife",
+    "slug": "cinelife",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "cinelife",
+    "userInterfaceStyle": "dark",
+    "splash": { "backgroundColor": "#1C1F2E" },
+    "ios": { "supportsTablet": false, "bundleIdentifier": "com.cinelife.app" },
+    "android": { "adaptiveIcon": { "backgroundColor": "#1C1F2E" }, "package": "com.cinelife.app" },
+    "plugins": ["expo-router", "expo-font"],
+    "experiments": { "typedRoutes": true }
+  }
+}
