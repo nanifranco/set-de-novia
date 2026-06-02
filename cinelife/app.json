@@ -1,15 +1,14 @@
 {
   "expo": {
-    "name": "CineLife",
-    "slug": "cinelife",
+    "name": "Set de Novia",
+    "slug": "set-de-novia",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "cinelife",
+    "scheme": "set-de-novia",
     "userInterfaceStyle": "dark",
-    "splash": { "backgroundColor": "#1C1F2E" },
-    "ios": { "supportsTablet": false, "bundleIdentifier": "com.cinelife.app" },
-    "android": { "adaptiveIcon": { "backgroundColor": "#1C1F2E" }, "package": "com.cinelife.app" },
-    "plugins": ["expo-router", "expo-font"],
-    "experiments": { "typedRoutes": true }
+    "assetBundlePatterns": ["**/*"],
+    "ios": { "supportsTablet": false },
+    "android": { "adaptiveIcon": { "backgroundColor": "#141414" } },
+    "plugins": ["expo-router"]
   }
 }

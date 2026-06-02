@@ -1,37 +1,33 @@
-import { useEffect } from 'react';
-import { Stack } from 'expo-router';
-import { router } from 'expo-router';
-import { supabase } from '../src/lib/supabase';
+import { useEffect, useState } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { Stack, router } from 'expo-router';
 import { useStore } from '../src/store';
+import { COLORS } from '../src/theme';
 
 export default function RootLayout() {
-  const loadUser = useStore(s => s.loadUser);
+  const { currentUser, loading } = useStore();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        loadUser(session.user.id).then(() => router.replace('/(tabs)'));
-      } else {
-        router.replace('/(auth)');
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        await loadUser(session.user.id);
-        router.replace('/(tabs)');
-      } else if (event === 'SIGNED_OUT') {
-        router.replace('/(auth)');
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    setReady(true);
   }, []);
 
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(tabs)" />
-    </Stack>
-  );
+  useEffect(() => {
+    if (!ready || loading) return;
+    if (!currentUser) {
+      router.replace('/login');
+    } else {
+      router.replace('/(tabs)');
+    }
+  }, [ready, loading, currentUser]);
+
+  if (!ready || loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
+        <ActivityIndicator color={COLORS.nani.primary} size="large" />
+      </View>
+    );
+  }
+
+  return <Stack screenOptions={{ headerShown: false }} />;
 }

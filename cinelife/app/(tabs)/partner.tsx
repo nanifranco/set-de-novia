@@ -1,232 +1,147 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import {
+  View, Text, ScrollView, TextInput, TouchableOpacity,
+  StyleSheet, KeyboardAvoidingView, Platform,
+} from 'react-native';
 import { useStore } from '../../src/store';
-import { Colors, S, R } from '../../src/constants/theme';
-import { CHEER_MESSAGES, RESOURCE_INFO } from '../../src/constants/habits';
-import { getLevelInfo } from '../../src/lib/gameEngine';
-import { UserResources } from '../../src/types';
+import { COLORS, SPACING, RADIUS } from '../../src/theme';
+import { getCurrentLevel } from '../../src/data';
+import type { Username } from '../../src/types';
 
 export default function PartnerScreen() {
-  const { user, partner, messages, sendCheer, sendGift, markMessagesRead } = useStore();
-  const [showCheer, setShowCheer] = useState(false);
-  const [showGift, setShowGift] = useState(false);
-  const [customMsg, setCustomMsg] = useState('');
-  const [giftType, setGiftType] = useState<keyof UserResources>('energy');
-  const [giftQty, setGiftQty] = useState(1);
+  const { currentUser, partnerUser, messages, sendMessage } = useStore();
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
 
-  useEffect(() => { markMessagesRead(); }, []);
+  if (!currentUser || !partnerUser) return null;
 
-  if (!user) return null;
+  const myAccent = currentUser.username === 'maria' ? COLORS.maria.primary : COLORS.nani.primary;
+  const partnerAccent = partnerUser.username === 'maria' ? COLORS.maria.primary : COLORS.nani.primary;
 
-  if (!partner) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.noPartner}>
-          <Text style={{ fontSize: 56 }}>💕</Text>
-          <Text style={styles.noPartnerTitle}>Sin pareja vinculada</Text>
-          <Text style={styles.noPartnerSub}>Para vincular a tu pareja, una de las dos debe agregar el ID de la otra en la base de datos (campo partner_id).</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const partnerLevel = getCurrentLevel(partnerUser.username as Username, partnerUser.xp);
+  const myLevel = getCurrentLevel(currentUser.username as Username, currentUser.xp);
 
-  const { currentLevel: partnerLevel } = getLevelInfo(partner.career_xp);
-  const isMaria = partner.username === 'maria';
-
-  const handleCheer = async (msg: string) => {
-    await sendCheer(msg);
-    setShowCheer(false);
-    setCustomMsg('');
-    Alert.alert('💕 Enviado', `${partner.display_name} recibirá tu mensaje de ánimo`);
-  };
-
-  const handleGift = async () => {
-    const available = user.resources[giftType] || 0;
-    if (giftQty > available) {
-      Alert.alert('No tienes suficientes', `Solo tienes ${available} ${RESOURCE_INFO[giftType].label}`);
-      return;
+  const handleSend = async (type: 'text' | 'congrats' | 'love' = 'text') => {
+    const content = type === 'text' ? text.trim() : type === 'congrats' ? '🎉 ¡Felicidades!' : '💕 Te quiero mucho';
+    if (!content) return;
+    setSending(true);
+    try {
+      await sendMessage(content, type);
+      if (type === 'text') setText('');
+    } finally {
+      setSending(false);
     }
-    await sendGift(giftType, giftQty);
-    setShowGift(false);
-    Alert.alert('🎁 Regalo enviado', `Le enviaste ${giftQty} ${RESOURCE_INFO[giftType].label} a ${partner.display_name}`);
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{isMaria ? '🎬' : '🔧'} {partner.display_name}</Text>
-          <Text style={styles.subtitle}>{partnerLevel.title}</Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: COLORS.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView contentContainerStyle={{ padding: SPACING.md, paddingTop: 60 }}>
+
+        {/* Partner progress */}
+        <Text style={[styles.sectionTitle, { color: myAccent }]}>Progreso de {partnerUser.display_name}</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <Text style={styles.emoji}>{partnerLevel.icon}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.name, { color: partnerAccent }]}>{partnerUser.display_name}</Text>
+              <Text style={styles.sub}>{partnerLevel.title}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[styles.xpBig, { color: partnerAccent }]}>{partnerUser.xp} XP</Text>
+              <Text style={styles.sub}>🔥 {partnerUser.streak_days} días</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Partner stats */}
-        <View style={styles.statsCard}>
-          <View style={styles.statItem}>
-            <Text style={styles.statVal}>🔥 {partner.streak_days}</Text>
-            <Text style={styles.statLbl}>días racha</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statVal}>🎬 {partner.career_xp}</Text>
-            <Text style={styles.statLbl}>XP total</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statVal}>🏆 {partner.career_level}</Text>
-            <Text style={styles.statLbl}>nivel</Text>
+        {/* My progress */}
+        <Text style={[styles.sectionTitle, { color: myAccent }]}>Mi progreso</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <Text style={styles.emoji}>{myLevel.icon}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.name, { color: myAccent }]}>{currentUser.display_name}</Text>
+              <Text style={styles.sub}>{myLevel.title}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[styles.xpBig, { color: myAccent }]}>{currentUser.xp} XP</Text>
+              <Text style={styles.sub}>🔥 {currentUser.streak_days} días</Text>
+            </View>
           </View>
         </View>
 
-        {/* Action buttons */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => setShowCheer(true)}>
-            <Text style={styles.actionIcon}>💬</Text>
-            <Text style={styles.actionLabel}>Enviar ánimo</Text>
+        {/* Quick actions */}
+        <Text style={[styles.sectionTitle, { color: myAccent }]}>Enviar a {partnerUser.display_name}</Text>
+        <View style={styles.quickRow}>
+          <TouchableOpacity style={[styles.quickBtn, { borderColor: myAccent }]} onPress={() => handleSend('congrats')}>
+            <Text style={styles.quickText}>🎉 Felicidades</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => setShowGift(true)}>
-            <Text style={styles.actionIcon}>🎁</Text>
-            <Text style={styles.actionLabel}>Regalar recurso</Text>
+          <TouchableOpacity style={[styles.quickBtn, { borderColor: myAccent }]} onPress={() => handleSend('love')}>
+            <Text style={styles.quickText}>💕 Te quiero</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Text message */}
+        <View style={styles.inputRow}>
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            value={text}
+            onChangeText={setText}
+            placeholder={`Mensaje para ${partnerUser.display_name}...`}
+            placeholderTextColor={COLORS.textMuted}
+            multiline
+          />
+          <TouchableOpacity
+            style={[styles.sendBtn, { backgroundColor: myAccent }, sending && { opacity: 0.6 }]}
+            onPress={() => handleSend('text')}
+            disabled={sending || !text.trim()}
+          >
+            <Text style={styles.sendText}>→</Text>
           </TouchableOpacity>
         </View>
 
         {/* Messages */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Mensajes recientes</Text>
-          {messages.length === 0 && (
-            <Text style={styles.emptyMsg}>Sin mensajes todavía. ¡Sé la primera en enviar ánimo!</Text>
-          )}
-          {messages.map(msg => (
-            <View key={msg.id} style={[styles.msgCard, !msg.read && styles.msgUnread]}>
-              <Text style={styles.msgIcon}>{msg.type === 'gift' ? '🎁' : '💬'}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.msgContent}>{msg.content}</Text>
-                <Text style={styles.msgTime}>{new Date(msg.created_at).toLocaleDateString('es', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
-              </View>
-              {!msg.read && <View style={styles.unreadDot} />}
+        <Text style={[styles.sectionTitle, { color: myAccent }]}>Mensajes recientes</Text>
+        {messages.slice(0, 20).map(msg => {
+          const isMe = msg.sender_id === currentUser.id;
+          return (
+            <View key={msg.id} style={[styles.msgBubble, isMe ? styles.msgRight : styles.msgLeft]}>
+              <Text style={styles.msgText}>{msg.content}</Text>
+              <Text style={styles.msgTime}>
+                {new Date(msg.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+              </Text>
             </View>
-          ))}
-        </View>
+          );
+        })}
+        {messages.length === 0 && (
+          <Text style={styles.empty}>Todavía no hay mensajes. ¡Manda el primero! 💕</Text>
+        )}
       </ScrollView>
-
-      {/* Cheer modal */}
-      <Modal visible={showCheer} animationType="slide" presentationStyle="pageSheet">
-        <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Enviar ánimo a {partner.display_name}</Text>
-            <TouchableOpacity onPress={() => setShowCheer(false)}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
-          </View>
-          <ScrollView style={{ padding: S.lg }}>
-            {CHEER_MESSAGES.map((msg, i) => (
-              <TouchableOpacity key={i} style={styles.cheerOption} onPress={() => handleCheer(msg)}>
-                <Text style={styles.cheerText}>{msg}</Text>
-              </TouchableOpacity>
-            ))}
-            <View style={styles.customWrap}>
-              <TextInput
-                style={styles.customInput}
-                placeholder="O escribe algo personal…"
-                placeholderTextColor={Colors.mist}
-                value={customMsg}
-                onChangeText={setCustomMsg}
-                multiline
-                maxLength={150}
-              />
-              {customMsg.length > 0 && (
-                <TouchableOpacity style={styles.sendBtn} onPress={() => handleCheer(customMsg)}>
-                  <Text style={styles.sendBtnTxt}>Enviar 💕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-
-      {/* Gift modal */}
-      <Modal visible={showGift} animationType="slide" presentationStyle="pageSheet">
-        <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Regalar recurso</Text>
-            <TouchableOpacity onPress={() => setShowGift(false)}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
-          </View>
-          <ScrollView style={{ padding: S.lg }}>
-            <Text style={styles.giftLabel}>Elige qué regalar</Text>
-            <View style={styles.giftGrid}>
-              {(Object.entries(RESOURCE_INFO) as [keyof UserResources, any][]).map(([key, info]) => (
-                <TouchableOpacity
-                  key={key}
-                  style={[styles.giftChip, giftType === key && { borderColor: info.color }]}
-                  onPress={() => setGiftType(key)}
-                >
-                  <Text style={styles.giftChipIcon}>{info.icon}</Text>
-                  <Text style={[styles.giftChipLabel, giftType === key && { color: info.color }]}>{info.label}</Text>
-                  <Text style={styles.giftChipCount}>Tienes: {user.resources[key] || 0}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Text style={styles.giftLabel}>Cantidad</Text>
-            <View style={styles.qtyRow}>
-              <TouchableOpacity style={styles.qtyBtn} onPress={() => setGiftQty(Math.max(1, giftQty - 1))}>
-                <Text style={styles.qtyBtnTxt}>−</Text>
-              </TouchableOpacity>
-              <Text style={styles.qtyVal}>{giftQty}</Text>
-              <TouchableOpacity style={styles.qtyBtn} onPress={() => setGiftQty(Math.min(5, giftQty + 1))}>
-                <Text style={styles.qtyBtnTxt}>+</Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleGift}>
-              <Text style={styles.primaryBtnTxt}>Regalar {giftQty} {RESOURCE_INFO[giftType].label} {RESOURCE_INFO[giftType].icon}</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
-  noPartner: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: S.xl, gap: S.md },
-  noPartnerTitle: { fontSize: 20, fontWeight: '700', color: Colors.parchment },
-  noPartnerSub: { color: Colors.mist, textAlign: 'center', fontSize: 14, lineHeight: 20 },
-  header: { padding: S.lg },
-  title: { fontSize: 28, fontWeight: '700', color: Colors.parchment },
-  subtitle: { color: Colors.gold, fontSize: 14, marginTop: 4 },
-  statsCard: { flexDirection: 'row', marginHorizontal: S.lg, backgroundColor: Colors.bgCard, borderRadius: R.lg, padding: S.lg, marginBottom: S.md },
-  statItem: { flex: 1, alignItems: 'center' },
-  statVal: { fontSize: 16, fontWeight: '700', color: Colors.parchment },
-  statLbl: { color: Colors.mist, fontSize: 12, marginTop: 2 },
-  actionRow: { flexDirection: 'row', gap: S.md, paddingHorizontal: S.lg, marginBottom: S.lg },
-  actionBtn: { flex: 1, backgroundColor: Colors.bgCard, borderRadius: R.lg, padding: S.lg, alignItems: 'center', gap: S.xs },
-  actionIcon: { fontSize: 32 },
-  actionLabel: { color: Colors.parchment, fontWeight: '600', fontSize: 14 },
-  section: { paddingHorizontal: S.lg },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: Colors.parchment, marginBottom: S.md },
-  emptyMsg: { color: Colors.mist, fontSize: 14, textAlign: 'center', paddingVertical: S.xl },
-  msgCard: { flexDirection: 'row', backgroundColor: Colors.bgCard, borderRadius: R.md, padding: S.md, gap: S.sm, marginBottom: S.sm, borderWidth: 1, borderColor: 'transparent' },
-  msgUnread: { borderColor: Colors.rose + '44' },
-  msgIcon: { fontSize: 22 },
-  msgContent: { color: Colors.parchment, fontSize: 14, lineHeight: 20 },
-  msgTime: { color: Colors.mist, fontSize: 12, marginTop: 4 },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.rose, alignSelf: 'center' },
-  modal: { flex: 1, backgroundColor: Colors.bg },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: S.lg, borderBottomWidth: 1, borderBottomColor: Colors.bgElevated },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.parchment },
-  closeBtn: { color: Colors.mist, fontSize: 22 },
-  cheerOption: { backgroundColor: Colors.bgCard, borderRadius: R.md, padding: S.md, marginBottom: S.sm },
-  cheerText: { color: Colors.parchment, fontSize: 15 },
-  customWrap: { marginTop: S.lg, gap: S.md },
-  customInput: { backgroundColor: Colors.bgCard, color: Colors.parchment, padding: S.md, borderRadius: R.md, fontSize: 15, minHeight: 80, textAlignVertical: 'top' },
-  sendBtn: { backgroundColor: Colors.rose, padding: S.md, borderRadius: R.md, alignItems: 'center' },
-  sendBtnTxt: { color: Colors.studio, fontWeight: '700', fontSize: 15 },
-  giftLabel: { color: Colors.mist, fontSize: 13, marginBottom: S.sm, marginTop: S.sm },
-  giftGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm, marginBottom: S.md },
-  giftChip: { width: '30%', padding: S.sm, backgroundColor: Colors.bgCard, borderRadius: R.sm, borderWidth: 1, borderColor: 'transparent', alignItems: 'center' },
-  giftChipIcon: { fontSize: 22 },
-  giftChipLabel: { color: Colors.mist, fontSize: 12, marginTop: 2 },
-  giftChipCount: { color: Colors.mist, fontSize: 10, marginTop: 2 },
-  qtyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.xl, marginBottom: S.lg },
-  qtyBtn: { backgroundColor: Colors.bgCard, width: 44, height: 44, borderRadius: R.full, alignItems: 'center', justifyContent: 'center' },
-  qtyBtnTxt: { color: Colors.parchment, fontSize: 22, fontWeight: '700' },
-  qtyVal: { fontSize: 28, fontWeight: '700', color: Colors.parchment, minWidth: 40, textAlign: 'center' },
-  primaryBtn: { backgroundColor: Colors.gold, padding: S.md, borderRadius: R.md, alignItems: 'center' },
-  primaryBtnTxt: { color: Colors.studio, fontWeight: '700', fontSize: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: SPACING.sm, marginTop: SPACING.md },
+  card: { backgroundColor: COLORS.card, borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
+  row: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  emoji: { fontSize: 32 },
+  name: { fontSize: 18, fontWeight: 'bold' },
+  sub: { color: COLORS.textMuted, fontSize: 13 },
+  xpBig: { fontSize: 18, fontWeight: 'bold' },
+  quickRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
+  quickBtn: { flex: 1, borderRadius: RADIUS.md, borderWidth: 1.5, padding: SPACING.sm, alignItems: 'center' },
+  quickText: { color: COLORS.text, fontSize: 14 },
+  inputRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md },
+  input: { backgroundColor: COLORS.card, borderRadius: RADIUS.md, padding: SPACING.sm, color: COLORS.text, fontSize: 15, borderWidth: 1, borderColor: COLORS.border },
+  sendBtn: { borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, justifyContent: 'center' },
+  sendText: { color: '#000', fontWeight: 'bold', fontSize: 18 },
+  msgBubble: { backgroundColor: COLORS.card, borderRadius: RADIUS.md, padding: SPACING.sm, marginBottom: SPACING.xs, maxWidth: '80%' },
+  msgRight: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },
+  msgLeft: { alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
+  msgText: { color: COLORS.text, fontSize: 15 },
+  msgTime: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
+  empty: { color: COLORS.textMuted, textAlign: 'center', marginTop: SPACING.md },
 });

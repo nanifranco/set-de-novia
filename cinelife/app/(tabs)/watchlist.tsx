@@ -1,310 +1,222 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  View, Text, ScrollView, TextInput, TouchableOpacity,
+  StyleSheet, Modal, Alert, ActivityIndicator,
+} from 'react-native';
 import { useStore } from '../../src/store';
-import { Colors, S, R } from '../../src/constants/theme';
-import { supabase } from '../../src/lib/supabase';
+import { COLORS, SPACING, RADIUS } from '../../src/theme';
 
-type RecommendationResult = {
-  recommendation: string;
-  is_from_watchlist: boolean;
-  director: string;
-  year: number;
-  why: string;
-  where_to_watch: string;
-  mood_match: string;
-};
-
-const MOODS = ['Tranquila 🍌', 'Emocionada ⚡', 'Melancólica 🌧️', 'Curiosa 🔍', 'Cansada 🌙'];
-const TIMES = ['Menos de 2 horas', 'Entre 2 y 3 horas', 'Tengo todo el tiempo'];
-const WANTS = ['Que me haga pensar', 'Que me haga llorar', 'Que me sorprenda', 'Solo quiero relajarme', 'Que me inspire'];
+const QUESTIONS = [
+  { key: 'mood', text: '¿Cómo te sientes hoy?', options: ['Feliz y emocionada', 'Relajada y tranquila', 'Pensativa o nostálgica', 'Necesito algo intenso'] },
+  { key: 'story', text: '¿Qué tipo de historia quieres?', options: ['Una aventura o acción', 'Algo romántico', 'Un drama profundo', 'Comedia o algo ligero'] },
+  { key: 'company', text: '¿Con quién la vas a ver?', options: ['Sola', 'Con Nani 💕', 'Con amigas', 'Con familia'] },
+];
 
 export default function WatchlistScreen() {
-  const { user, watchlist, addToWatchlist, markWatched, removeFromWatchlist } = useStore();
-  const [filter, setFilter] = useState<'pending' | 'watched'>('pending');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showRecommender, setShowRecommender] = useState(false);
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState({ mood: '', time: '', want: '' });
-  const [aiLoading, setAiLoading] = useState(false);
-  const [result, setResult] = useState<RecommendationResult | null>(null);
+  const { currentUser, watchlist, addToWatchlist, markWatched, removeFromWatchlist, getAIRecommendation } = useStore();
 
-  // Add movie form state
+  const [addVisible, setAddVisible] = useState(false);
+  const [aiVisible, setAiVisible] = useState(false);
+  const [aiStep, setAiStep] = useState(0);
+  const [aiAnswers, setAiAnswers] = useState<Record<string, string>>({});
+  const [recommendation, setRecommendation] = useState('');
+  const [loadingRec, setLoadingRec] = useState(false);
+
   const [form, setForm] = useState({ title: '', director: '', year: '', genre: '', notes: '' });
 
-  if (!user) return null;
+  if (!currentUser || currentUser.username !== 'maria') {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.noAccess}>Esta sección es solo para María 🎬</Text>
+      </View>
+    );
+  }
 
-  const filtered = watchlist.filter(m => filter === 'pending' ? !m.watched : m.watched);
+  const pending = watchlist.filter(m => !m.watched);
+  const watched = watchlist.filter(m => m.watched);
 
   const handleAdd = async () => {
     if (!form.title.trim()) { Alert.alert('Falta el título'); return; }
     await addToWatchlist({
       title: form.title.trim(),
-      director: form.director.trim(),
+      director: form.director.trim() || null,
       year: form.year ? parseInt(form.year) : null,
-      genre: form.genre.trim(),
-      notes: form.notes.trim(),
+      genre: form.genre.trim() || null,
+      notes: form.notes.trim() || null,
       watched: false,
     });
     setForm({ title: '', director: '', year: '', genre: '', notes: '' });
-    setShowAddModal(false);
+    setAddVisible(false);
   };
 
-  const handleRecommend = async () => {
-    setAiLoading(true);
-    try {
-      const { data } = await supabase.functions.invoke('recommend-movie', {
-        body: { answers, watchlist: watchlist.filter(m => !m.watched) },
-      });
-      setResult(data);
-    } catch (err) {
-      Alert.alert('Error', 'No se pudo generar la recomendación. Intenta de nuevo.');
-    } finally {
-      setAiLoading(false);
+  const handleAIAnswer = async (answer: string) => {
+    const key = QUESTIONS[aiStep].key;
+    const newAnswers = { ...aiAnswers, [key]: answer };
+    setAiAnswers(newAnswers);
+
+    if (aiStep < QUESTIONS.length - 1) {
+      setAiStep(aiStep + 1);
+    } else {
+      setLoadingRec(true);
+      try {
+        const rec = await getAIRecommendation(newAnswers);
+        setRecommendation(rec);
+        setAiStep(QUESTIONS.length);
+      } catch {
+        Alert.alert('Error', 'No pude conectarme a la IA. ¿Tienes internet?');
+        setAiVisible(false);
+      } finally {
+        setLoadingRec(false);
+      }
     }
   };
 
-  const resetRecommender = () => {
-    setShowRecommender(false);
-    setStep(0);
-    setAnswers({ mood: '', time: '', want: '' });
-    setResult(null);
+  const resetAI = () => {
+    setAiStep(0);
+    setAiAnswers({});
+    setRecommendation('');
+    setAiVisible(false);
   };
 
-  const Questions = [
-    { key: 'mood', label: '¿Cómo te sientes hoy, María?', options: MOODS },
-    { key: 'time', label: '¿Cuánto tiempo tienes?', options: TIMES },
-    { key: 'want', label: '¿Qué quieres sentir con la película?', options: WANTS },
-  ];
-
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.title}>📽️ Mis Películas</Text>
-          <TouchableOpacity style={styles.recommendBtn} onPress={() => setShowRecommender(true)}>
-            <Text style={styles.recommendBtnTxt}>✨ ¿Qué veo hoy?</Text>
-          </TouchableOpacity>
+    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
+      <ScrollView contentContainerStyle={{ padding: SPACING.md, paddingTop: 60 }}>
+
+        {/* Header buttons */}
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Mi Watchlist 🎬</Text>
+          <View style={styles.btnRow}>
+            <TouchableOpacity style={[styles.btn, { backgroundColor: COLORS.maria.secondary }]} onPress={() => setAddVisible(true)}>
+              <Text style={styles.btnText}>+ Agregar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.btn, { backgroundColor: COLORS.maria.primary }]} onPress={() => { setAiVisible(true); setAiStep(0); setAiAnswers({}); setRecommendation(''); }}>
+              <Text style={styles.btnText}>✨ IA</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.filterRow}>
-          <TouchableOpacity style={[styles.filterBtn, filter === 'pending' && styles.filterBtnActive]} onPress={() => setFilter('pending')}>
-            <Text style={[styles.filterTxt, filter === 'pending' && styles.filterTxtActive]}>Pendientes ({watchlist.filter(m => !m.watched).length})</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.filterBtn, filter === 'watched' && styles.filterBtnActive]} onPress={() => setFilter('watched')}>
-            <Text style={[styles.filterTxt, filter === 'watched' && styles.filterTxtActive]}>Vistas ({watchlist.filter(m => m.watched).length})</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.list}>
-          {filtered.length === 0 && (
-            <View style={styles.empty}>
-              <Text style={{ fontSize: 48 }}>{filter === 'pending' ? '🎬' : '✅'}</Text>
-              <Text style={styles.emptyTxt}>{filter === 'pending' ? 'Tu watchlist está vacía' : 'Sin películas vistas aún'}</Text>
+        {/* Pending */}
+        <Text style={styles.section}>Pendientes ({pending.length})</Text>
+        {pending.map(movie => (
+          <View key={movie.id} style={styles.movieCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.movieTitle}>{movie.title}</Text>
+              {movie.director && <Text style={styles.movieMeta}>Dir: {movie.director}{movie.year ? ` · ${movie.year}` : ''}</Text>}
+              {movie.genre && <Text style={styles.movieMeta}>{movie.genre}</Text>}
+              {movie.notes && <Text style={styles.movieNotes}>{movie.notes}</Text>}
             </View>
-          )}
-          {filtered.map(movie => (
-            <View key={movie.id} style={styles.movieCard}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.movieTitle}>{movie.title}</Text>
-                {movie.director && <Text style={styles.movieMeta}>{movie.director}{movie.year ? ` • ${movie.year}` : ''}</Text>}
-                {movie.genre && <Text style={styles.movieGenre}>{movie.genre}</Text>}
-                {movie.notes ? <Text style={styles.movieNotes}>{movie.notes}</Text> : null}
-              </View>
-              <View style={styles.movieActions}>
-                {!movie.watched && (
-                  <TouchableOpacity
-                    style={styles.watchedBtn}
-                    onPress={() => markWatched(movie.id)}
-                  >
-                    <Text style={styles.watchedBtnTxt}>✓ Vista</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity onPress={() => {
-                  Alert.alert('Eliminar', `¿Quitar "${movie.title}" de tu watchlist?`, [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: 'Eliminar', style: 'destructive', onPress: () => removeFromWatchlist(movie.id) },
-                  ]);
-                }}>
-                  <Text style={styles.deleteBtn}>🗑️</Text>
-                </TouchableOpacity>
-              </View>
+            <View style={styles.movieActions}>
+              <TouchableOpacity onPress={() => markWatched(movie.id)}>
+                <Text style={{ fontSize: 22 }}>✅</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => removeFromWatchlist(movie.id)}>
+                <Text style={{ fontSize: 22 }}>🗑️</Text>
+              </TouchableOpacity>
             </View>
-          ))}
-        </View>
+          </View>
+        ))}
+        {pending.length === 0 && <Text style={styles.empty}>No tienes películas pendientes 🎉</Text>}
 
-        <TouchableOpacity style={styles.addBtn} onPress={() => setShowAddModal(true)}>
-          <Text style={styles.addBtnTxt}>+ Agregar película</Text>
-        </TouchableOpacity>
+        {/* Watched */}
+        {watched.length > 0 && (
+          <>
+            <Text style={[styles.section, { marginTop: SPACING.md }]}>Ya vistas ({watched.length})</Text>
+            {watched.map(movie => (
+              <View key={movie.id} style={[styles.movieCard, { opacity: 0.5 }]}>
+                <Text style={styles.movieTitle}>✅ {movie.title}</Text>
+              </View>
+            ))}
+          </>
+        )}
       </ScrollView>
 
       {/* Add movie modal */}
-      <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
-        <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Agregar a watchlist</Text>
-            <TouchableOpacity onPress={() => setShowAddModal(false)}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
-          </View>
-          <ScrollView style={{ padding: S.lg }} keyboardShouldPersistTaps="handled">
-            {[['Título *', 'title', 'Nombre de la película'], ['Director/a', 'director', 'Nombre del director/a'], ['Año', 'year', '2024'], ['Género', 'genre', 'Drama, Comedia, etc.'], ['Notas', 'notes', '¿Por qué quieres verla?']].map(([label, key, placeholder]) => (
-              <View key={key} style={{ marginBottom: S.md }}>
-                <Text style={styles.inputLabel}>{label}</Text>
-                <TextInput
-                  style={[styles.input, key === 'notes' && { height: 80, textAlignVertical: 'top' }]}
-                  placeholder={placeholder as string}
-                  placeholderTextColor={Colors.mist}
-                  value={form[key as keyof typeof form]}
-                  onChangeText={v => setForm(f => ({ ...f, [key]: v }))}
-                  keyboardType={key === 'year' ? 'numeric' : 'default'}
-                  multiline={key === 'notes'}
-                />
-              </View>
+      <Modal visible={addVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modal}>
+            <Text style={styles.modalTitle}>Agregar película</Text>
+            {(['title', 'director', 'year', 'genre', 'notes'] as const).map(field => (
+              <TextInput
+                key={field}
+                style={styles.input}
+                value={form[field]}
+                onChangeText={v => setForm(f => ({ ...f, [field]: v }))}
+                placeholder={field === 'title' ? 'Título *' : field === 'director' ? 'Director/a' : field === 'year' ? 'Año' : field === 'genre' ? 'Género' : 'Notas'}
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType={field === 'year' ? 'number-pad' : 'default'}
+              />
             ))}
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleAdd}>
-              <Text style={styles.primaryBtnTxt}>Agregar a la lista</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-
-      {/* Recommender modal */}
-      <Modal visible={showRecommender} animationType="slide" presentationStyle="pageSheet">
-        <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>✨ ¿Qué ves hoy?</Text>
-            <TouchableOpacity onPress={resetRecommender}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
-          </View>
-
-          {!result ? (
-            <View style={styles.recommenderContent}>
-              {step < 3 ? (
-                <View style={{ flex: 1, padding: S.lg }}>
-                  <Text style={styles.stepIndicator}>{step + 1} / 3</Text>
-                  <Text style={styles.questionText}>{Questions[step].label}</Text>
-                  <View style={styles.optionsList}>
-                    {Questions[step].options.map(opt => (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.optionBtn,
-                          answers[Questions[step].key as keyof typeof answers] === opt && styles.optionBtnSelected,
-                        ]}
-                        onPress={() => {
-                          setAnswers(a => ({ ...a, [Questions[step].key]: opt }));
-                          if (step < 2) {
-                            setStep(step + 1);
-                          } else {
-                            handleRecommend();
-                          }
-                        }}
-                      >
-                        <Text style={[
-                          styles.optionTxt,
-                          answers[Questions[step].key as keyof typeof answers] === opt && styles.optionTxtSelected,
-                        ]}>{opt}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  {step > 0 && (
-                    <TouchableOpacity onPress={() => setStep(step - 1)} style={{ marginTop: S.md }}>
-                      <Text style={{ color: Colors.mist, textAlign: 'center' }}>← Volver</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ) : (
-                <View style={styles.loadingWrap}>
-                  <Text style={{ fontSize: 48 }}>🎬</Text>
-                  <Text style={styles.loadingTxt}>Luz está eligiendo tu película perfecta…</Text>
-                </View>
-              )}
-            </View>
-          ) : (
-            <ScrollView style={{ padding: S.lg }}>
-              {result.is_from_watchlist && (
-                <View style={styles.fromWatchlistBadge}>
-                  <Text style={styles.fromWatchlistTxt}>⭐ Está en tu watchlist</Text>
-                </View>
-              )}
-              <Text style={styles.resultTitle}>{result.recommendation}</Text>
-              <Text style={styles.resultMeta}>{result.director} • {result.year}</Text>
-              <Text style={styles.resultMoodMatch}>“{result.mood_match}”</Text>
-              <Text style={styles.resultWhy}>{result.why}</Text>
-              {result.where_to_watch && (
-                <Text style={styles.resultWhere}>📺 Dónde verla: {result.where_to_watch}</Text>
-              )}
-              {result.is_from_watchlist && (
-                <TouchableOpacity
-                  style={styles.markWatchedBtn}
-                  onPress={() => {
-                    const movie = watchlist.find(m => m.title.toLowerCase() === result.recommendation.toLowerCase());
-                    if (movie) markWatched(movie.id);
-                    resetRecommender();
-                  }}
-                >
-                  <Text style={styles.markWatchedTxt}>✓ Marcar como vista después de verla</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={[styles.primaryBtn, { marginTop: S.md }]} onPress={resetRecommender}>
-                <Text style={styles.primaryBtnTxt}>Listo</Text>
+            <View style={styles.btnRow}>
+              <TouchableOpacity style={[styles.btn, { flex: 1, backgroundColor: COLORS.border }]} onPress={() => setAddVisible(false)}>
+                <Text style={[styles.btnText, { color: COLORS.text }]}>Cancelar</Text>
               </TouchableOpacity>
-            </ScrollView>
-          )}
-        </SafeAreaView>
+              <TouchableOpacity style={[styles.btn, { flex: 1, backgroundColor: COLORS.maria.primary }]} onPress={handleAdd}>
+                <Text style={styles.btnText}>Guardar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
-    </SafeAreaView>
+
+      {/* AI recommender modal */}
+      <Modal visible={aiVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modal}>
+            {loadingRec ? (
+              <>
+                <ActivityIndicator color={COLORS.maria.primary} size="large" />
+                <Text style={[styles.modalTitle, { marginTop: SPACING.md }]}>Pensando en la película perfecta...</Text>
+              </>
+            ) : aiStep < QUESTIONS.length ? (
+              <>
+                <Text style={styles.aiProgress}>{aiStep + 1} / {QUESTIONS.length}</Text>
+                <Text style={styles.modalTitle}>{QUESTIONS[aiStep].text}</Text>
+                {QUESTIONS[aiStep].options.map(opt => (
+                  <TouchableOpacity key={opt} style={styles.aiOption} onPress={() => handleAIAnswer(opt)}>
+                    <Text style={styles.aiOptionText}>{opt}</Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity onPress={resetAI}>
+                  <Text style={[styles.empty, { marginTop: SPACING.sm }]}>Cancelar</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.modalTitle}>✨ Recomendación</Text>
+                <Text style={styles.recommendation}>{recommendation}</Text>
+                <TouchableOpacity style={[styles.btn, { backgroundColor: COLORS.maria.primary, marginTop: SPACING.md }]} onPress={resetAI}>
+                  <Text style={styles.btnText}>Listo 🎬</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
-  header: { padding: S.lg, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: '700', color: Colors.parchment },
-  recommendBtn: { backgroundColor: Colors.rose, paddingHorizontal: S.md, paddingVertical: S.sm, borderRadius: R.full },
-  recommendBtnTxt: { color: Colors.studio, fontWeight: '700', fontSize: 14 },
-  filterRow: { flexDirection: 'row', paddingHorizontal: S.lg, gap: S.sm, marginBottom: S.md },
-  filterBtn: { flex: 1, padding: S.sm, borderRadius: R.full, backgroundColor: Colors.bgCard, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
-  filterBtnActive: { borderColor: Colors.gold, backgroundColor: Colors.bgElevated },
-  filterTxt: { color: Colors.mist, fontWeight: '600', fontSize: 14 },
-  filterTxtActive: { color: Colors.gold },
-  list: { paddingHorizontal: S.lg, gap: S.sm },
-  empty: { alignItems: 'center', paddingVertical: S.xxl, gap: S.md },
-  emptyTxt: { color: Colors.mist, fontSize: 16 },
-  movieCard: { backgroundColor: Colors.bgCard, borderRadius: R.md, padding: S.md, flexDirection: 'row', gap: S.sm, alignItems: 'flex-start' },
-  movieTitle: { fontSize: 15, fontWeight: '700', color: Colors.parchment },
-  movieMeta: { color: Colors.mist, fontSize: 13, marginTop: 2 },
-  movieGenre: { color: Colors.blue, fontSize: 12, marginTop: 2 },
-  movieNotes: { color: Colors.mist, fontSize: 12, marginTop: 4, fontStyle: 'italic' },
-  movieActions: { gap: S.sm, alignItems: 'flex-end' },
-  watchedBtn: { backgroundColor: Colors.green + '33', paddingHorizontal: S.sm, paddingVertical: 4, borderRadius: R.sm },
-  watchedBtnTxt: { color: Colors.green, fontWeight: '700', fontSize: 12 },
-  deleteBtn: { fontSize: 18, opacity: 0.5 },
-  addBtn: { margin: S.lg, padding: S.md, borderWidth: 1, borderColor: Colors.gold, borderRadius: R.md, borderStyle: 'dashed', alignItems: 'center' },
-  addBtnTxt: { color: Colors.gold, fontWeight: '600' },
-  modal: { flex: 1, backgroundColor: Colors.bg },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: S.lg, borderBottomWidth: 1, borderBottomColor: Colors.bgElevated },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: Colors.parchment },
-  closeBtn: { color: Colors.mist, fontSize: 22 },
-  inputLabel: { color: Colors.mist, fontSize: 13, marginBottom: S.xs },
-  input: { backgroundColor: Colors.bgCard, color: Colors.parchment, padding: S.md, borderRadius: R.md, fontSize: 15 },
-  primaryBtn: { backgroundColor: Colors.gold, padding: S.md, borderRadius: R.md, alignItems: 'center' },
-  primaryBtnTxt: { color: Colors.studio, fontWeight: '700', fontSize: 16 },
-  recommenderContent: { flex: 1 },
-  stepIndicator: { color: Colors.mist, fontSize: 13, textAlign: 'center', marginBottom: S.md },
-  questionText: { fontSize: 22, fontWeight: '700', color: Colors.parchment, textAlign: 'center', marginBottom: S.xl, lineHeight: 30 },
-  optionsList: { gap: S.sm },
-  optionBtn: { padding: S.md, backgroundColor: Colors.bgCard, borderRadius: R.md, borderWidth: 1, borderColor: 'transparent' },
-  optionBtnSelected: { borderColor: Colors.gold, backgroundColor: Colors.bgElevated },
-  optionTxt: { color: Colors.parchment, fontSize: 16, textAlign: 'center' },
-  optionTxtSelected: { color: Colors.gold, fontWeight: '700' },
-  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: S.lg, padding: S.xl },
-  loadingTxt: { color: Colors.mist, fontSize: 16, textAlign: 'center' },
-  fromWatchlistBadge: { backgroundColor: Colors.gold + '22', borderRadius: R.sm, padding: S.sm, marginBottom: S.md, alignSelf: 'flex-start' },
-  fromWatchlistTxt: { color: Colors.gold, fontWeight: '700', fontSize: 13 },
-  resultTitle: { fontSize: 26, fontWeight: '700', color: Colors.parchment, marginBottom: S.xs },
-  resultMeta: { color: Colors.mist, fontSize: 14, marginBottom: S.md },
-  resultMoodMatch: { color: Colors.rose, fontStyle: 'italic', fontSize: 15, marginBottom: S.md },
-  resultWhy: { color: Colors.parchment, fontSize: 15, lineHeight: 24, marginBottom: S.md },
-  resultWhere: { color: Colors.blue, fontSize: 14, marginBottom: S.md },
-  markWatchedBtn: { backgroundColor: Colors.green + '22', padding: S.md, borderRadius: R.md, alignItems: 'center', marginTop: S.sm },
-  markWatchedTxt: { color: Colors.green, fontWeight: '700' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
+  noAccess: { color: COLORS.textMuted, fontSize: 16 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
+  title: { color: COLORS.text, fontSize: 22, fontWeight: 'bold' },
+  btnRow: { flexDirection: 'row', gap: SPACING.sm },
+  btn: { borderRadius: RADIUS.md, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.md, alignItems: 'center' },
+  btnText: { color: '#000', fontWeight: '600', fontSize: 14 },
+  section: { color: COLORS.textMuted, fontSize: 14, fontWeight: '600', marginBottom: SPACING.sm },
+  movieCard: { backgroundColor: COLORS.card, borderRadius: RADIUS.md, padding: SPACING.md, flexDirection: 'row', alignItems: 'flex-start', marginBottom: SPACING.sm, gap: SPACING.sm },
+  movieTitle: { color: COLORS.text, fontSize: 16, fontWeight: '600' },
+  movieMeta: { color: COLORS.textMuted, fontSize: 13, marginTop: 2 },
+  movieNotes: { color: COLORS.textMuted, fontSize: 12, fontStyle: 'italic', marginTop: 4 },
+  movieActions: { gap: SPACING.sm },
+  empty: { color: COLORS.textMuted, textAlign: 'center', fontSize: 14 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  modal: { backgroundColor: COLORS.card, borderTopLeftRadius: RADIUS.lg, borderTopRightRadius: RADIUS.lg, padding: SPACING.lg, gap: SPACING.sm },
+  modalTitle: { color: COLORS.text, fontSize: 18, fontWeight: 'bold', textAlign: 'center' },
+  input: { backgroundColor: COLORS.background, borderRadius: RADIUS.md, padding: SPACING.sm, color: COLORS.text, fontSize: 15, borderWidth: 1, borderColor: COLORS.border },
+  aiProgress: { color: COLORS.maria.primary, textAlign: 'center', fontSize: 13 },
+  aiOption: { backgroundColor: COLORS.background, borderRadius: RADIUS.md, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.maria.secondary },
+  aiOptionText: { color: COLORS.text, fontSize: 15, textAlign: 'center' },
+  recommendation: { color: COLORS.text, fontSize: 15, lineHeight: 22, textAlign: 'center', padding: SPACING.sm },
 });
