@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PlotterArt Studio — Line Art para CNC Plotter</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── Header ─────────────────────────────────────────── -->
+  <header class="app-header">
+    <div>
+      <h1>PlotterArt Studio</h1>
+      <p>Transforma imágenes en arte vectorial para plotter CNC</p>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ── Upload ─────────────────────────────────────────── -->
+    <section class="upload-section" id="upload-section">
+      <div id="drop-zone" class="drop-zone">
+        <div class="upload-icon">⬆</div>
+        <p>Arrastra tu imagen aquí</p>
+        <p style="font-size:12px;color:var(--text-faint)">o</p>
+        <label for="file-input" class="upload-btn">Seleccionar imagen</label>
+        <input type="file" id="file-input" accept="image/*" hidden>
+        <p class="upload-formats">PNG · JPG · WEBP · GIF</p>
+      </div>
+    </section>
+
+    <!-- ── Workspace ──────────────────────────────────────── -->
+    <div id="workspace" class="workspace hidden">
+
+      <!-- ── Left: controls ─────────────────────────────── -->
+      <aside class="controls-panel">
+
+        <!-- Thumbnail -->
+        <div class="panel-section">
+          <h3>Imagen original</h3>
+          <div class="thumbnail-container">
+            <img id="source-thumb" alt="Imagen cargada">
+          </div>
+        </div>
+
+        <!-- Style selector -->
+        <div class="panel-section">
+          <h3>Estilo artístico</h3>
+          <div class="style-grid">
+            <button class="style-btn active" data-style="hatching">
+              <span class="style-icon">⟋</span>
+              <span>Hatching</span>
+            </button>
+            <button class="style-btn" data-style="typewriter">
+              <span class="style-icon" style="font-size:14px;font-weight:bold">Aa</span>
+              <span>Typewriter</span>
+            </button>
+            <button class="style-btn" data-style="maze">
+              <span class="style-icon">⊞</span>
+              <span>Laberinto</span>
+            </button>
+            <button class="style-btn" data-style="squiggle">
+              <span class="style-icon">∿</span>
+              <span>Garabato</span>
+            </button>
+            <button class="style-btn" data-style="stipple">
+              <span class="style-icon">∷</span>
+              <span>Puntillismo</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Effect-specific params (built by JS) -->
+        <div class="panel-section" id="style-params"></div>
+
+        <!-- Global image adjustments -->
+        <div class="panel-section global-controls">
+          <h3>Ajustes de imagen</h3>
+
+          <label class="param-label">
+            <span>Contraste</span>
+            <input type="range" id="param-contrast" min="-100" max="100" value="0" step="5">
+            <span class="param-value">0</span>
+          </label>
+
+          <label class="param-label">
+            <span>Brillo</span>
+            <input type="range" id="param-brightness" min="-100" max="100" value="0" step="5">
+            <span class="param-value">0</span>
+          </label>
+
+          <label class="param-label">
+            <span>Invertir</span>
+            <input type="checkbox" id="param-invert">
+          </label>
+
+          <label class="param-label">
+            <span>Color trazo</span>
+            <input type="color" id="param-stroke-color" value="#000000">
+          </label>
+        </div>
+
+        <!-- Render -->
+        <button id="render-btn" class="render-btn">⟳ Renderizar</button>
+
+        <!-- Export -->
+        <div class="panel-section export-section">
+          <h3>Exportar para plotter</h3>
+          <button id="export-svg-btn" class="export-btn">⬇ Exportar SVG (plotter)</button>
+          <button id="export-png-btn" class="export-btn">⬇ Exportar PNG</button>
+        </div>
+
+      </aside>
+
+      <!-- ── Right: canvas preview ───────────────────────── -->
+      <div class="preview-panel">
+        <div class="preview-container">
+          <canvas id="preview-canvas"></canvas>
+          <div id="render-overlay" class="render-overlay hidden">
+            <div class="spinner"></div>
+            <p>Procesando…</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /workspace -->
+
+  </main>
+</div>
+
+<!-- Scripts — order matters (utils first, then effects, then app) -->
+<script src="js/utils.js"></script>
+<script src="js/effects/hatching.js"></script>
+<script src="js/effects/typewriter.js"></script>
+<script src="js/effects/maze.js"></script>
+<script src="js/effects/squiggle.js"></script>
+<script src="js/effects/stipple.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
