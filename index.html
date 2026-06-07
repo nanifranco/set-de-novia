@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Line Art Generator</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+
+  <header class="header">
+    <div class="header-inner">
+      <svg class="logo" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="8" width="44" height="0.8" fill="currentColor"/>
+        <rect x="0" y="14" width="44" height="1.6" fill="currentColor"/>
+        <rect x="0" y="20" width="44" height="3" fill="currentColor"/>
+        <rect x="0" y="27" width="44" height="3.5" fill="currentColor"/>
+        <rect x="0" y="34" width="44" height="2" fill="currentColor"/>
+        <rect x="0" y="40" width="44" height="0.8" fill="currentColor"/>
+      </svg>
+      <div>
+        <h1>Line Art Generator</h1>
+        <p>Convierte tus fotos en arte de líneas complejo</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="workflow">
+
+      <!-- PASO 1: Subir foto -->
+      <div class="step">
+        <div class="step-tag">01 &mdash; Sube tu foto</div>
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept="image/*" hidden>
+          <div class="upload-content" id="uploadContent">
+            <div class="upload-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 16V4m0 0-3 3m3-3 3 3"/>
+                <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                <path d="M16 16v6M8 22v-6M12 22v-4"/>
+              </svg>
+            </div>
+            <p class="upload-title">Arrastra una imagen aquí</p>
+            <p class="upload-sub">o <span class="link" id="uploadBtn">haz clic para seleccionar</span></p>
+            <p class="upload-hint">JPG · PNG · WEBP &nbsp;·&nbsp; máx 10MB</p>
+          </div>
+          <div class="upload-preview" id="uploadPreview" hidden>
+            <img id="previewImg" alt="Preview">
+            <button class="change-btn" id="changeBtn">Cambiar foto</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PASO 2: Elegir estilo -->
+      <div class="step">
+        <div class="step-tag">02 &mdash; Elige un estilo</div>
+        <div class="styles-grid">
+
+          <label class="style-card">
+            <input type="radio" name="style" value="engraving" checked>
+            <div class="style-card-inner">
+              <div class="style-preview">
+                <svg viewBox="0 0 100 70" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="100" height="70" fill="#f5f5f0"/>
+                  <rect x="0" y="7"  width="100" height="0.5" fill="#222"/>
+                  <rect x="0" y="14" width="100" height="1"   fill="#222"/>
+                  <rect x="0" y="21" width="100" height="2"   fill="#222"/>
+                  <rect x="0" y="29" width="100" height="3.5" fill="#222"/>
+                  <rect x="0" y="37" width="100" height="4"   fill="#222"/>
+                  <rect x="0" y="45" width="100" height="3"   fill="#222"/>
+                  <rect x="0" y="52" width="100" height="2"   fill="#222"/>
+                  <rect x="0" y="59" width="100" height="1"   fill="#222"/>
+                  <rect x="0" y="65" width="100" height="0.4" fill="#222"/>
+                </svg>
+              </div>
+              <div class="style-info">
+                <h3>Grabado</h3>
+                <p>Líneas horizontales con grosor variable &mdash; estilo grabado clásico</p>
+              </div>
+            </div>
+          </label>
+
+          <label class="style-card">
+            <input type="radio" name="style" value="hatching">
+            <div class="style-card-inner">
+              <div class="style-preview">
+                <svg viewBox="0 0 100 70" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="100" height="70" fill="#f5f5f0"/>
+                  <!-- sparse zone left -->
+                  <line x1="2"  y1="68" x2="18" y2="2"  stroke="#222" stroke-width="0.7"/>
+                  <line x1="10" y1="68" x2="28" y2="8"  stroke="#222" stroke-width="0.7"/>
+                  <line x1="18" y1="68" x2="36" y2="14" stroke="#222" stroke-width="0.7"/>
+                  <!-- medium zone center -->
+                  <line x1="26" y1="68" x2="62" y2="2"  stroke="#222" stroke-width="0.7"/>
+                  <line x1="34" y1="68" x2="68" y2="8"  stroke="#222" stroke-width="0.7"/>
+                  <line x1="42" y1="68" x2="74" y2="14" stroke="#222" stroke-width="0.7"/>
+                  <line x1="50" y1="68" x2="80" y2="20" stroke="#222" stroke-width="0.7"/>
+                  <line x1="58" y1="68" x2="86" y2="26" stroke="#222" stroke-width="0.7"/>
+                  <!-- cross-hatch dark zone right -->
+                  <line x1="60" y1="2"  x2="100" y2="42" stroke="#222" stroke-width="0.7"/>
+                  <line x1="65" y1="2"  x2="100" y2="37" stroke="#222" stroke-width="0.7"/>
+                  <line x1="70" y1="2"  x2="100" y2="32" stroke="#222" stroke-width="0.7"/>
+                  <line x1="76" y1="2"  x2="100" y2="26" stroke="#222" stroke-width="0.7"/>
+                  <line x1="82" y1="2"  x2="100" y2="20" stroke="#222" stroke-width="0.7"/>
+                  <line x1="88" y1="2"  x2="100" y2="14" stroke="#222" stroke-width="0.7"/>
+                  <line x1="68" y1="68" x2="100" y2="36" stroke="#222" stroke-width="0.7"/>
+                  <line x1="76" y1="68" x2="100" y2="44" stroke="#222" stroke-width="0.7"/>
+                  <line x1="84" y1="68" x2="100" y2="52" stroke="#222" stroke-width="0.7"/>
+                  <line x1="92" y1="68" x2="100" y2="60" stroke="#222" stroke-width="0.7"/>
+                </svg>
+              </div>
+              <div class="style-info">
+                <h3>Tramado</h3>
+                <p>Trazos diagonales cruzados con densidad variable</p>
+              </div>
+            </div>
+          </label>
+
+          <label class="style-card">
+            <input type="radio" name="style" value="scribble">
+            <div class="style-card-inner">
+              <div class="style-preview">
+                <svg viewBox="0 0 100 70" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="100" height="70" fill="#f5f5f0"/>
+                  <path d="M5 35 Q12 22 20 34 Q28 46 35 28 Q42 10 50 30 Q58 50 65 32 Q72 14 80 28 Q88 42 95 35" fill="none" stroke="#222" stroke-width="0.9" stroke-linecap="round"/>
+                  <path d="M3 50 Q14 38 22 50 Q30 62 40 46 Q50 30 58 46 Q66 62 74 48 Q82 34 92 46" fill="none" stroke="#222" stroke-width="0.9" stroke-linecap="round"/>
+                  <path d="M6 20 Q16 12 26 22 Q36 32 44 16 Q52 0 62 18 Q72 36 80 22 Q88 8 96 18" fill="none" stroke="#222" stroke-width="0.9" stroke-linecap="round"/>
+                  <path d="M10 58 Q20 48 30 58 Q40 68 50 54 Q60 40 68 54 Q76 68 86 56 Q94 46 98 52" fill="none" stroke="#222" stroke-width="0.9" stroke-linecap="round"/>
+                  <path d="M15 42 Q22 35 30 43 Q38 51 46 40 Q54 29 62 40 Q70 51 78 42 Q86 33 94 40" fill="none" stroke="#222" stroke-width="0.6" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="style-info">
+                <h3>Garabato</h3>
+                <p>Trazos sueltos y expresivos, estilo boceto libre</p>
+              </div>
+            </div>
+          </label>
+
+        </div>
+      </div>
+
+      <!-- PASO 3: Ajustes -->
+      <div class="step">
+        <div class="step-tag">03 &mdash; Ajusta los parámetros</div>
+        <div class="settings">
+
+          <div class="setting">
+            <div class="setting-row">
+              <label for="detail">Detalle</label>
+              <span class="setting-val" id="detailValue">5</span>
+            </div>
+            <input type="range" id="detail" min="1" max="10" value="5">
+            <div class="setting-hints"><span>Simple</span><span>Muy detallado</span></div>
+          </div>
+
+          <div class="setting">
+            <div class="setting-row">
+              <label for="contrast">Contraste</label>
+              <span class="setting-val" id="contrastValue">5</span>
+            </div>
+            <input type="range" id="contrast" min="1" max="10" value="5">
+            <div class="setting-hints"><span>Suave</span><span>Alto contraste</span></div>
+          </div>
+
+          <div class="setting">
+            <div class="setting-row">
+              <label for="density">Densidad</label>
+              <span class="setting-val" id="densityValue">5</span>
+            </div>
+            <input type="range" id="density" min="1" max="10" value="5">
+            <div class="setting-hints"><span>Ligero</span><span>Denso</span></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Botón generar -->
+      <button class="generate-btn" id="generateBtn" disabled>
+        <span id="btnText">Generar Line Art</span>
+        <span id="btnLoading" hidden>
+          <svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="9" stroke-dasharray="44" stroke-dashoffset="22" opacity="0.25"/>
+            <path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"/>
+          </svg>
+          Procesando…
+        </span>
+      </button>
+
+      <!-- RESULTADO -->
+      <div class="step output-step" id="outputSection" hidden>
+        <div class="step-tag">✓ &nbsp;Tu Line Art</div>
+        <div class="output-wrap">
+          <canvas id="outputCanvas"></canvas>
+        </div>
+        <div class="output-actions">
+          <button class="btn-primary" id="downloadBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v13m0 0-4-4m4 4 4-4M3 18l.5 2a2 2 0 0 0 1.94 1.5h13.12A2 2 0 0 0 20.5 20l.5-2"/>
+            </svg>
+            Descargar PNG
+          </button>
+          <button class="btn-secondary" id="regenerateBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 4v6h6M23 20v-6h-6"/>
+              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
+            </svg>
+            Regenerar
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /workflow -->
+  </main>
+</div>
+
+<!-- Canvas oculto para procesar la imagen fuente -->
+<canvas id="sourceCanvas" style="display:none"></canvas>
+
+<script src="lineart.js"></script>
+</body>
+</html>
